@@ -13,20 +13,16 @@ echo "=== 02: Filter eligible cameras ==="
 python3 scripts/02_filter_cameras.py
 echo
 
-echo "=== 03: Run spatial + DiD analysis ==="
+echo "=== 03: Run DiD analysis ==="
 python3 scripts/03_run_analysis.py
 echo
 
-echo "=== 04: Placebo test ==="
-python3 scripts/04_placebo_test.py
+echo "=== 04: Make figures ==="
+python3 scripts/04_make_figures.py
 echo
 
-echo "=== 05: Make figures ==="
-python3 scripts/05_make_figures.py
-echo
-
-echo "=== 06: Build Excel workbook ==="
-python3 scripts/06_build_workbook.py
+echo "=== 05: Build Excel workbook ==="
+python3 scripts/05_build_workbook.py
 echo
 
 echo "=== Pipeline complete ==="
