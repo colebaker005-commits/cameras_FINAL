@@ -73,37 +73,11 @@ def compute_did(sub, nearby_pre, nearby_post, city_pre, city_post):
     return round(zone - city, 1)
 
 
-def build_readme(wb):
-    ws = wb.active
-    ws.title = "README"
-    content = [
-        ["DC Traffic Camera Impact Analysis"],
-        [""],
-        ["Analysis window: crash data from 2021 through 2026."],
-        ["Eligible cameras: 283 live cameras with a full 365-day pre and post window."],
-        ["Buffer: 200m radius around each camera (roughly two DC blocks)."],
-        [""],
-        ["Primary metric: Difference-in-Differences (DiD)"],
-        ["  = (nearby % change) minus (citywide % change)"],
-        ["  Negative DiD = area near camera improved MORE than citywide trend."],
-        ["  Positive DiD = area near camera improved LESS than citywide trend."],
-        [""],
-        ["TABS:"],
-        ["  Summary      — Headline DiD by camera type and outcome"],
-        ["  Per_Camera   — One row per camera, all computed columns"],
-        ["  Placebo      — Real DiD vs placebo DiD (install shifted back 1 yr)"],
-        ["  Methodology  — Design notes and caveats"],
-    ]
-    for row in content:
-        ws.append(row)
-    ws["A1"].font = Font(bold=True, size=16, color="1F3A5F")
-    ws["A7"].font = Font(bold=True, size=12)
-    ws["A12"].font = Font(bold=True, size=12)
-    ws.column_dimensions["A"].width = 80
+
 
 
 def build_summary(wb, res, placebo):
-    ws = wb.create_sheet("Summary")
+    ws = wb.active
     ws.append(["Headline results by camera type — 200m buffer"])
     ws.append([])
     ws.append(["Camera Type", "N", "Outcome",
@@ -222,37 +196,7 @@ def build_placebo(wb, res, placebo):
     autosize(ws, min_w=12)
 
 
-def build_methodology(wb):
-    ws = wb.create_sheet("Methodology")
-    ws.column_dimensions["A"].width = 100
-    sections = [
-        ("DC Traffic Camera Impact Analysis — Methodology", True, 15),
-        ("", False, 11),
-        ("DATA", True, 12),
-        ("Crash data: DDOT Crashes in DC dataset. 75,400 geocoded crashes, 2021–2026.", False, 11),
-        ("Camera data: DDOT Automated Traffic Enforcement dataset. 283 eligible cameras.", False, 11),
-        ("", False, 11),
-        ("DESIGN", True, 12),
-        ("Buffer: 200m radius around each camera using geopy.distance for real-world distance.", False, 11),
-        ("Windows: 365 days before install vs 365 days after (install day excluded).", False, 11),
-        ("DiD: (nearby % change) minus (citywide % change) over the same windows.", False, 11),
-        ("", False, 11),
-        ("VALIDITY CHECK", True, 12),
-        ("Placebo: each camera's install date shifted back 1 year. If the cameras cause the", False, 11),
-        ("effect, the placebo DiD should be close to zero.", False, 11),
-        ("", False, 11),
-        ("LIMITATIONS", True, 12),
-        ("1. Cameras are placed where crashes are elevated — regression to mean is a risk.", False, 11),
-        ("2. 200m is a straight-line proxy, not a street-network distance.", False, 11),
-        ("3. Camera installs may coincide with other street changes (signs, paint, bollards).", False, 11),
-        ("4. START_DATE is assumed to mean active enforcement; warning periods dilute the effect.", False, 11),
-        ("5. Fatal/serious per-type counts are too sparse for confident claims.", False, 11),
-    ]
-    for text, bold, size in sections:
-        ws.append([text])
-        c = ws.cell(row=ws.max_row, column=1)
-        c.font = Font(bold=bold, size=size, name="Arial")
-        c.alignment = Alignment(wrap_text=True)
+
 
 
 def main():
@@ -262,11 +206,12 @@ def main():
     print(f"  {len(res)} cameras in results, {len(placebo)} in placebo")
 
     wb = Workbook()
-    build_readme(wb)
+
+    # --- Rename the default sheet and use it for Summary
+    wb.active.title = "Summary"
     build_summary(wb, res, placebo)
     build_per_camera(wb, res)
     build_placebo(wb, res, placebo)
-    build_methodology(wb)
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUT_PATH)
