@@ -1,21 +1,14 @@
-# updated Script 6, checked by Cole
 """
-
 06_build_workbook.py
 --------------------
-Assembles the final Excel workbook from the analysis results. This is the
-human-readable version of everything computed in scripts 03 and 04.
+Assembles the final Excel workbook from the analysis results.
 
 Tabs produced:
-    1. README        — what's in the workbook and how to read it
-    2. Summary       — headline DiD numbers by camera type
-    3. Per_Camera    — one row per camera with all computed columns
-    4. Placebo       — real DiD vs placebo DiD side by side
-    5. Methodology   — notes on design, caveats, limitations
+    1. Summary     — headline DiD numbers by camera type and outcome
+    2. Per_Camera  — one row per camera with all computed columns
 
 Input:
     data/processed/per_camera_results.pkl
-    data/processed/placebo_results.pkl
 
 Output:
     outputs/camera_analysis_results.xlsx
@@ -29,7 +22,6 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 REPO_ROOT    = Path(__file__).resolve().parent.parent
 RESULTS_PATH = REPO_ROOT / "data" / "processed" / "per_camera_results.pkl"
-PLACEBO_PATH = REPO_ROOT / "data" / "processed" / "placebo_results.pkl"
 OUT_PATH     = REPO_ROOT / "outputs" / "camera_analysis_results.xlsx"
 
 TYPES    = ["Speed", "Red Light", "Stop Sign", "Truck Restriction"]
@@ -63,11 +55,11 @@ def autosize(ws, min_w=10, max_w=30):
         ws.column_dimensions[cells[0].column_letter].width = min(max(length + 2, min_w), max_w)
 
 
-def compute_did(sub, nearby_pre, nearby_post, city_pre, city_post):
-    pre   = sub[nearby_pre].sum()
-    post  = sub[nearby_post].sum()
-    cpre  = sub[city_pre].sum()
-    cpost = sub[city_post].sum()
+def compute_did(sub, outcome_key):
+    pre   = sub[f"nearby_{outcome_key}_pre"].sum()
+    post  = sub[f"nearby_{outcome_key}_post"].sum()
+    cpre  = sub[f"citywide_{outcome_key}_pre"].sum()
+    cpost = sub[f"citywide_{outcome_key}_post"].sum()
     zone  = (post - pre)  / pre  * 100 if pre  else None
     city  = (cpost - cpre) / cpre * 100 if cpre else None
     if zone is None or city is None:
@@ -75,47 +67,28 @@ def compute_did(sub, nearby_pre, nearby_post, city_pre, city_post):
     return round(zone - city, 1)
 
 
-
-
-
-def build_summary(wb, res, placebo):
+def build_summary(wb, res):
     ws = wb.active
     ws.append(["Headline results by camera type — 200m buffer"])
     ws.append([])
     ws.append(["Camera Type", "N", "Outcome",
                "Nearby pre", "Nearby post", "Nearby %",
-               "Citywide %", "DiD",
-               "Placebo DiD", "Corrected DiD (Real - Placebo)"])
+               "Citywide %", "DiD"])
 
     for outcome_key, outcome_label in OUTCOMES:
         for t in TYPES:
-            sub_r = res[res["type"] == t]
-            sub_p = placebo[placebo["type"] == t]
+            sub = res[res["type"] == t]
 
-            # Real DiD
-            real_did = compute_did(sub_r,
-                f"nearby_{outcome_key}_pre", f"nearby_{outcome_key}_post",
-                f"citywide_{outcome_key}_pre", f"citywide_{outcome_key}_post")
-
-            # Nearby and citywide raw numbers
-            npre  = sub_r[f"nearby_{outcome_key}_pre"].sum()
-            npost = sub_r[f"nearby_{outcome_key}_post"].sum()
-            cpre  = sub_r[f"citywide_{outcome_key}_pre"].sum()
-            cpost = sub_r[f"citywide_{outcome_key}_post"].sum()
+            npre  = sub[f"nearby_{outcome_key}_pre"].sum()
+            npost = sub[f"nearby_{outcome_key}_post"].sum()
+            cpre  = sub[f"citywide_{outcome_key}_pre"].sum()
+            cpost = sub[f"citywide_{outcome_key}_post"].sum()
             npct  = round((npost - npre) / npre * 100, 1) if npre else None
             cpct  = round((cpost - cpre) / cpre * 100, 1) if cpre else None
+            did   = compute_did(sub, outcome_key)
 
-            # Placebo DiD
-            placebo_did = compute_did(sub_p,
-                f"placebo_nearby_{outcome_key}_pre", f"placebo_nearby_{outcome_key}_post",
-                f"placebo_city_{outcome_key}_pre",   f"placebo_city_{outcome_key}_post")
-
-            corrected = round(real_did - placebo_did, 1) if (real_did is not None and placebo_did is not None) else None
-
-            ws.append([t, len(sub_r), outcome_label,
-                       npre, npost, npct, cpct,
-                       real_did, placebo_did, corrected])
-
+            ws.append([t, len(sub), outcome_label,
+                       npre, npost, npct, cpct, did])
         ws.append([])
 
     style_header(ws, 3)
@@ -166,54 +139,15 @@ def build_per_camera(wb, res):
     autosize(ws)
 
 
-def build_placebo(wb, res, placebo):
-    ws = wb.create_sheet("Placebo")
-    ws.append(["Placebo test — install dates shifted back 1 year"])
-    ws.append(["If the real DiD is genuinely caused by the camera, the placebo DiD should be close to zero."])
-    ws.append([])
-    ws.append(["Camera Type", "N", "Outcome",
-               "Real DiD", "Placebo DiD", "Corrected DiD (Real - Placebo)"])
-
-    for outcome_key, outcome_label in OUTCOMES:
-        for t in TYPES:
-            sub_r = res[res["type"] == t]
-            sub_p = placebo[placebo["type"] == t]
-
-            real_did = compute_did(sub_r,
-                f"nearby_{outcome_key}_pre", f"nearby_{outcome_key}_post",
-                f"citywide_{outcome_key}_pre", f"citywide_{outcome_key}_post")
-
-            placebo_did = compute_did(sub_p,
-                f"placebo_nearby_{outcome_key}_pre", f"placebo_nearby_{outcome_key}_post",
-                f"placebo_city_{outcome_key}_pre",   f"placebo_city_{outcome_key}_post")
-
-            corrected = round(real_did - placebo_did, 1) if (real_did is not None and placebo_did is not None) else None
-
-            ws.append([t, len(sub_r), outcome_label,
-                       real_did, placebo_did, corrected])
-        ws.append([])
-
-    style_header(ws, 4)
-    ws["A1"].font = Font(bold=True, size=13)
-    autosize(ws, min_w=12)
-
-
-
-
-
 def main():
     print("Loading results ...")
-    res     = pd.read_pickle(RESULTS_PATH)
-    placebo = pd.read_pickle(PLACEBO_PATH)
-    print(f"  {len(res)} cameras in results, {len(placebo)} in placebo")
+    res = pd.read_pickle(RESULTS_PATH)
+    print(f"  {len(res)} cameras in results")
 
     wb = Workbook()
-
-    # --- Rename the default sheet and use it for Summary
     wb.active.title = "Summary"
-    build_summary(wb, res, placebo)
+    build_summary(wb, res)
     build_per_camera(wb, res)
-    build_placebo(wb, res, placebo)
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUT_PATH)
