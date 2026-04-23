@@ -36,8 +36,6 @@ OUT_PATH = REPO_ROOT / "data" / "processed" / "crashes_clean.pkl"
 # Source: https://gist.github.com/jakebathman/719e8416191ba14bb6e700fc2d5fccc5
 DC_LAT_MIN, DC_LAT_MAX = 38.79, 39.00
 DC_LON_MIN, DC_LON_MAX = -77.12, -76.91
-DC_LAT_MIN, DC_LAT_MAX = 38.79, 39.00
-DC_LON_MIN, DC_LON_MAX = -77.12, -76.91
 
 # --- Date window for the analysis.
 DATE_MIN = pd.Timestamp("2021-01-01")
